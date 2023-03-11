@@ -24,7 +24,7 @@ werf-up-conf:
   kubectl config set-context --current --namespace=vocascan;
   kubectl apply -Rf ./.kube/secret/;
 werf-down-conf:
-  kubectl apply -Rf ./.kube/secret/;
+  kubectl delete -Rf ./.kube/secret/;
 
 werf-up:
   werf converge;
