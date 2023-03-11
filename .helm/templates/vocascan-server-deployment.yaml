@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    kompose.cmd: kompose convert -f docker-compose.yml -o ./.helm/templates
+    kompose.service.expose: {{ .Values.vocascan_server_host }}
+    kompose.service.expose.ingress-class-name: nginx
+    kompose.version: 1.28.0 (HEAD)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: vocascan-server
+  name: vocascan-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.kompose.service: vocascan-server
+  strategy: {}
+  template:
+    metadata:
+      annotations:
+        kompose.cmd: kompose convert -f docker-compose.yml -o ./.helm/templates
+        kompose.service.expose: {{ .Values.vocascan_server_host }}
+        kompose.service.expose.ingress-class-name: nginx
+        kompose.version: 1.28.0 (HEAD)
+      creationTimestamp: null
+      labels:
+        io.kompose.network/vocascan-default: "true"
+        io.kompose.service: vocascan-server
+    spec:
+      containers:
+        - env:
+            - name: VOCASCAN_CONFIG
+              value: /etc/vocascan/vocascan.config.js
+            - name: VOCASCAN__DATABASE__HOST
+              value: {{ .Values.vocascan_server_host }}
+            - name: VOCASCAN__DATABASE__PORT
+              value: "32432"
+          image: vocascan/server:latest
+          name: vocascan-server
+          ports:
+            - containerPort: 8000
+          resources: {}
+          tty: true
+          volumeMounts:
+            - mountPath: /etc/vocascan
+              name: vocascan-config
+      restartPolicy: Always
+      volumes:
+        - name: vocascan-config
+          secret:
+            items:
+              - key: vocascan-config
+                path: vocascan.config.js
+            secretName: vocascan-config
+status: {}

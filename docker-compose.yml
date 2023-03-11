@@ -1,0 +1,74 @@
+
+version: '3.8'
+services:
+  vocascan-db:
+    container_name: vocascan-db
+    image: postgres
+    labels:
+      kompose.controller.type: "statefulset"
+      kompose.service.type: nodeport
+      kompose.service.nodeport.port: 32432
+    environment:
+      POSTGRES_DB_FILE: /run/secrets/vocascan-db/vocascan-db
+      POSTGRES_USER_FILE: /run/secrets/vocascan-db-user/vocascan-db-user
+      POSTGRES_PASSWORD_FILE: /run/secrets/vocascan-db-pass/vocascan-db-pass
+    ports:
+      - '32432:5432'
+    healthcheck:
+      test: ["CMD-SHELL", "/bin/sh", "-c", "exec pg_isready -h 127.0.0.1"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - vocascandb:/var/lib/postgresql/data
+    secrets:
+      - vocascan-db
+      - vocascan-db-user
+      - vocascan-db-pass
+
+  vocascan-server:
+    container_name: vocascan-server
+    image: vocascan/server:latest
+    labels:
+      kompose.service.expose: "{{ .Values.vocascan_server_host }}"
+      kompose.service.expose.ingress-class-name: "nginx"
+    tty: true
+    depends_on:
+      - vocascan-db
+    environment:
+      VOCASCAN_CONFIG: '/etc/vocascan/vocascan.config.js'
+      VOCASCAN__DATABASE__HOST: "{{ .Values.vocascan_server_host }}"
+      VOCASCAN__DATABASE__PORT: 32432
+    ports:
+      - '80:8000'
+    # volumes:
+    #   - './vocascan.config.js:/etc/vocascan/vocascan.config.js:ro'
+    secrets:
+      - source: vocascan-config
+        target: /etc/vocascan/vocascan.config.js
+
+  vocascan-web:
+    container_name: vocascan-web
+    image: vocascan/frontend:latest
+    labels:
+      kompose.service.expose: "{{ .Values.vocascan_web_host }}"
+      kompose.service.expose.ingress-class-name: "nginx"
+    tty: true
+    environment:
+      VOCASCAN_BASE_URL: "{{ .Values.vocascan_server_host }}"
+    ports:
+      - "80:80"
+
+secrets:
+  vocascan-config:
+    file: ./.raw/secret/vocascan.config.js
+  vocascan-db:
+    file: .raw/secret/db.txt
+  vocascan-db-user:
+    file: .raw/secret/user.txt
+  vocascan-db-pass:
+    file: .raw/secret/pass.txt
+
+volumes:
+  vocascandb:
+    driver: local

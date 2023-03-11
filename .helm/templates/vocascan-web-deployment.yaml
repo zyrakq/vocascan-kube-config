@@ -1,0 +1,42 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    kompose.cmd: kompose convert -f docker-compose.yml -o ./.helm/templates
+    kompose.service.expose: {{ .Values.vocascan_web_host }}
+    kompose.service.expose.ingress-class-name: nginx
+    kompose.version: 1.28.0 (HEAD)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: vocascan-web
+  name: vocascan-web
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.kompose.service: vocascan-web
+  strategy: {}
+  template:
+    metadata:
+      annotations:
+        kompose.cmd: kompose convert -f docker-compose.yml -o ./.helm/templates
+        kompose.service.expose: {{ .Values.vocascan_web_host }}
+        kompose.service.expose.ingress-class-name: nginx
+        kompose.version: 1.28.0 (HEAD)
+      creationTimestamp: null
+      labels:
+        io.kompose.network/vocascan-default: "true"
+        io.kompose.service: vocascan-web
+    spec:
+      containers:
+        - env:
+            - name: VOCASCAN_BASE_URL
+              value: {{ .Values.vocascan_server_host }}
+          image: vocascan/frontend:latest
+          name: vocascan-web
+          ports:
+            - containerPort: 80
+          resources: {}
+          tty: true
+      restartPolicy: Always
+status: {}

@@ -1,0 +1,96 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  annotations:
+    kompose.cmd: kompose convert -f docker-compose.yml -o ./.helm/templates
+    kompose.controller.type: statefulset
+    kompose.service.nodeport.port: "32432"
+    kompose.service.type: nodeport
+    kompose.version: 1.28.0 (HEAD)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: vocascan-db
+  name: vocascan-db
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.kompose.service: vocascan-db
+  serviceName: vocascan-db
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        io.kompose.network/vocascan-default: "true"
+        io.kompose.service: vocascan-db
+    spec:
+      containers:
+        - env:
+            - name: POSTGRES_DB_FILE
+              value: /run/secrets/vocascan-db/vocascan-db
+            - name: POSTGRES_PASSWORD_FILE
+              value: /run/secrets/vocascan-db-pass/vocascan-db-pass
+            - name: POSTGRES_USER_FILE
+              value: /run/secrets/vocascan-db-user/vocascan-db-user
+          image: postgres
+          livenessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - exec pg_isready -h 127.0.0.1
+            failureThreshold: 5
+            periodSeconds: 5
+            timeoutSeconds: 5
+          name: vocascan-db
+          ports:
+            - containerPort: 5432
+          resources: {}
+          volumeMounts:
+            - mountPath: /run/secrets/vocascan-db
+              name: vocascan-db
+            - mountPath: /run/secrets/vocascan-db-user
+              name: vocascan-db-user
+            - mountPath: /run/secrets/vocascan-db-pass
+              name: vocascan-db-pass
+            - mountPath: /var/lib/postgresql/data
+              name: vocascandb
+      restartPolicy: Always
+      volumes:
+        - name: vocascan-db
+          secret:
+            items:
+              - key: vocascan-db
+                path: vocascan-db
+            secretName: vocascan-db
+        - name: vocascan-db-user
+          secret:
+            items:
+              - key: vocascan-db-user
+                path: vocascan-db-user
+            secretName: vocascan-db-user
+        - name: vocascan-db-pass
+          secret:
+            items:
+              - key: vocascan-db-pass
+                path: vocascan-db-pass
+            secretName: vocascan-db-pass
+        - name: vocascandb
+          persistentVolumeClaim:
+            claimName: vocascandb
+  updateStrategy: {}
+  volumeClaimTemplates:
+    - metadata:
+        creationTimestamp: null
+        labels:
+          io.kompose.service: vocascandb
+        name: vocascandb
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 100Mi
+      status: {}
+status:
+  replicas: 0
