@@ -61,13 +61,13 @@ services:
 
 secrets:
   vocascan-config:
-    file: ./.raw/secret/vocascan.config.js
+    file: .origin/secret/vocascan.config.js
   vocascan-db:
-    file: .raw/secret/db.txt
+    file: .origin/secret/db.txt
   vocascan-db-user:
-    file: .raw/secret/user.txt
+    file: .origin/secret/user.txt
   vocascan-db-pass:
-    file: .raw/secret/pass.txt
+    file: .origin/secret/pass.txt
 
 volumes:
   vocascandb:
