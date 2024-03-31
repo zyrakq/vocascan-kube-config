@@ -1,0 +1,158 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: vocascan-db-persistent-volume-claim
+  namespace: vocascan
+spec:
+  accessModes:
+    - ReadWriteOnce
+    - ReadOnlyMany
+  resources:
+    requests:
+      storage: 0.1Gi
+  storageClassName: standard
+  volumeMode: Filesystem
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: vocascan-db-name-secret
+  namespace: vocascan
+immutable: false
+stringData:
+  vocascan-db: "{{ .Values.Db.Name }}"
+type: Opaque
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: vocascan-db-user-secret
+  namespace: vocascan
+immutable: false
+stringData:
+  vocascan-db-user: "{{ .Values.Db.Username }}"
+type: Opaque
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: vocascan-db-passwd-secret
+  namespace: vocascan
+immutable: false
+stringData:
+  vocascan-db-passwd: "{{ .Values.Db.Password }}"
+type: Opaque
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.service: vocascan-db
+  name: vocascan-db-service
+  namespace: vocascan
+spec:
+  externalIPs: []
+  ports:
+    - port: 5432
+      targetPort: 5432
+  selector:
+    cdk8s.io/metadata.addr: vocascan-db-statefulset-c869a952
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  labels:
+    io.service: vocascan-db
+  name: vocascan-db-statefulset
+  namespace: vocascan
+spec:
+  minReadySeconds: 0
+  podManagementPolicy: OrderedReady
+  replicas: 1
+  selector:
+    matchLabels:
+      cdk8s.io/metadata.addr: vocascan-db-statefulset-c869a952
+  serviceName: vocascan-db-service
+  template:
+    metadata:
+      labels:
+        cdk8s.io/metadata.addr: vocascan-db-statefulset-c869a952
+        io.network/vocascan-network: "true"
+    spec:
+      automountServiceAccountToken: false
+      containers:
+        - env:
+            - name: POSTGRES_USER_FILE
+              value: /run/secrets/vocascan-db-user/vocascan-db-user
+            - name: POSTGRES_PASSWORD_FILE
+              value: /run/secrets/vocascan-db-passwd/vocascan-db-passwd
+            - name: POSTGRES_DB_FILE
+              value: /run/secrets/vocascan-db/vocascan-db
+          image: postgres:12.9
+          imagePullPolicy: Always
+          livenessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - exec pg_isready -h 127.0.0.1
+            failureThreshold: 5
+            periodSeconds: 5
+            timeoutSeconds: 5
+          name: vocascan-db
+          ports:
+            - containerPort: 5432
+          securityContext:
+            allowPrivilegeEscalation: false
+            privileged: false
+            readOnlyRootFilesystem: false
+            runAsNonRoot: false
+          startupProbe:
+            failureThreshold: 3
+            tcpSocket:
+              port: 5432
+          volumeMounts:
+            - mountPath: /var/lib/postgresql/data
+              name: vocascan-db-persistent-volume-claim
+            - mountPath: /run/secrets/vocascan-db
+              name: vocascan-db
+            - mountPath: /run/secrets/vocascan-db-user
+              name: vocascan-db-user
+            - mountPath: /run/secrets/vocascan-db-passwd
+              name: vocascan-db-passwd
+      dnsPolicy: ClusterFirst
+      hostNetwork: false
+      restartPolicy: Always
+      securityContext:
+        fsGroupChangePolicy: Always
+        runAsNonRoot: false
+      setHostnameAsFQDN: false
+      terminationGracePeriodSeconds: 30
+      volumes:
+        - name: vocascan-db-persistent-volume-claim
+          persistentVolumeClaim:
+            claimName: vocascan-db-persistent-volume-claim
+            readOnly: false
+        - name: vocascan-db
+          secret:
+            items:
+              - key: vocascan-db
+                path: vocascan-db
+            secretName: vocascan-db-name-secret
+        - name: vocascan-db-user
+          secret:
+            items:
+              - key: vocascan-db-user
+                path: vocascan-db-user
+            secretName: vocascan-db-user-secret
+        - name: vocascan-db-passwd
+          secret:
+            items:
+              - key: vocascan-db-passwd
+                path: vocascan-db-passwd
+            secretName: vocascan-db-passwd-secret
+  updateStrategy:
+    rollingUpdate:
+      partition: 0
+    type: RollingUpdate

@@ -1,0 +1,6 @@
+configVersion: 1
+project: vocascan
+
+deploy:
+  namespace: vocascan
+  helmChartDir: .helm-development

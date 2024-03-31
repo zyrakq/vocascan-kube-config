@@ -1,0 +1,88 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    io.service: vocascan-client
+  name: vocascan-client-deployment
+  namespace: vocascan
+spec:
+  minReadySeconds: 0
+  progressDeadlineSeconds: 600
+  replicas: 1
+  selector:
+    matchLabels:
+      cdk8s.io/metadata.addr: vocascan-client-deployment-c8935d04
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        cdk8s.io/metadata.addr: vocascan-client-deployment-c8935d04
+        io.network/vocascan-network: "true"
+    spec:
+      automountServiceAccountToken: false
+      containers:
+        - env:
+            - name: VOCASCAN_BASE_URL
+              value: "{{ .Values.Client.BackendUrl }}"
+          image: vocascan/frontend:latest
+          imagePullPolicy: Always
+          name: vocascan-client
+          ports:
+            - containerPort: 80
+          securityContext:
+            allowPrivilegeEscalation: false
+            privileged: false
+            readOnlyRootFilesystem: false
+            runAsNonRoot: false
+          startupProbe:
+            failureThreshold: 3
+            tcpSocket:
+              port: 80
+      dnsPolicy: ClusterFirst
+      hostNetwork: false
+      restartPolicy: Always
+      securityContext:
+        fsGroupChangePolicy: Always
+        runAsNonRoot: false
+      setHostnameAsFQDN: false
+      terminationGracePeriodSeconds: 30
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vocascan-client-service
+  namespace: vocascan
+spec:
+  externalIPs: []
+  ports:
+    - port: 80
+      targetPort: 80
+  selector:
+    cdk8s.io/metadata.addr: vocascan-client-deployment-c8935d04
+  type: ClusterIP
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+  labels:
+    io.service: vocascan-client
+  name: vocascan-client-ingress
+  namespace: vocascan
+spec:
+  rules:
+    - host: "{{ .Values.Client.Domain }}"
+      http:
+        paths:
+          - backend:
+              service:
+                name: vocascan-client-service
+                port:
+                  number: 80
+            path: /
+            pathType: Prefix

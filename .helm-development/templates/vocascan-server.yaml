@@ -1,0 +1,112 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: vocascan-server-vocascan-config-secret
+  namespace: vocascan
+data:
+  vocascan-config: '{{ werf_secret_file "vocascan.config.js" | b64enc }}'
+immutable: false
+type: Opaque
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    io.service: vocascan-server
+  name: vocascan-server-deployment
+  namespace: vocascan
+spec:
+  minReadySeconds: 0
+  progressDeadlineSeconds: 600
+  replicas: 1
+  selector:
+    matchLabels:
+      cdk8s.io/metadata.addr: vocascan-server-deployment-c8e65443
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        cdk8s.io/metadata.addr: vocascan-server-deployment-c8e65443
+        io.network/vocascan-network: "true"
+    spec:
+      automountServiceAccountToken: false
+      containers:
+        - env:
+            - name: VOCASCAN__DATABASE__PORT
+              value: "{{ .Values.Server.Db.Port }}"
+            - name: VOCASCAN_CONFIG
+              value: "{{ .Values.Server.Config }}"
+            - name: VOCASCAN__DATABASE__HOST
+              value: "{{ .Values.Server.Db.Host }}"
+          image: vocascan/server:latest
+          imagePullPolicy: Always
+          name: vocascan-server
+          ports:
+            - containerPort: 8000
+          securityContext:
+            allowPrivilegeEscalation: false
+            privileged: false
+            readOnlyRootFilesystem: false
+            runAsNonRoot: false
+          startupProbe:
+            failureThreshold: 3
+            tcpSocket:
+              port: 8000
+          volumeMounts:
+            - mountPath: /etc/vocascan
+              name: vocascan-config
+      dnsPolicy: ClusterFirst
+      hostNetwork: false
+      restartPolicy: Always
+      securityContext:
+        fsGroupChangePolicy: Always
+        runAsNonRoot: false
+      setHostnameAsFQDN: false
+      terminationGracePeriodSeconds: 30
+      volumes:
+        - name: vocascan-config
+          secret:
+            items:
+              - key: vocascan-config
+                path: vocascan-config
+            secretName: vocascan-server-vocascan-config-secret
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vocascan-server-service
+  namespace: vocascan
+spec:
+  externalIPs: []
+  ports:
+    - port: 80
+      targetPort: 8000
+  selector:
+    cdk8s.io/metadata.addr: vocascan-server-deployment-c8e65443
+  type: ClusterIP
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    cert-manager.io/cluster-issuer: cert-manager-issuer
+  labels:
+    io.service: vocascan-server
+  name: vocascan-server-ingress
+  namespace: vocascan
+spec:
+  rules:
+    - host: "{{ .Values.Server.Domain }}"
+      http:
+        paths:
+          - backend:
+              service:
+                name: vocascan-server-service
+                port:
+                  number: 80
+            path: /
+            pathType: Prefix

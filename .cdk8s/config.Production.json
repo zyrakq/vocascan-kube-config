@@ -1,0 +1,5 @@
+{
+    "Outdir": "../.helm-production/templates",
+    "StorageName": "vocascan-local-storage",
+    "ClusterIssuer": "letsencrypt-prod"
+}
