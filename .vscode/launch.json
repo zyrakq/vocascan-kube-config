@@ -7,7 +7,7 @@
       "mode": "debug",
       "program": "${workspaceFolder}/.cdk8s/src",
       "cwd": "${workspaceFolder}/.cdk8s",
-      "args": ["-e=Production"],
+      "args": ["-e=Development"],
       "env": {
         // "CDK8S_ENVIRONMENT": "Production"
         // "CDK8S_STORAGENAME": "fsdf"

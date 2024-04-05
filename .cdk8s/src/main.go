@@ -6,7 +6,7 @@ import (
 	"github.com/aws/constructs-go/constructs/v10"
 	"github.com/aws/jsii-runtime-go"
 	"github.com/cdk8s-team/cdk8s-core-go/cdk8s/v2"
-	"github.com/cdk8s-team/cdk8s-plus-go/cdk8splus26/v2"
+	"github.com/cdk8s-team/cdk8s-plus-go/cdk8splus28/v2"
 	configs "github.com/erritis/cdk8skit/v3/cdk8skit/configs"
 	deployments "github.com/erritis/cdk8skit/v3/cdk8skit/deployments"
 	networks "github.com/erritis/cdk8skit/v3/cdk8skit/networks"
@@ -49,7 +49,7 @@ func NewDbChart(scope constructs.Construct, id string, props *DbChartProps) cdk8
 
 	if props.Environment == "Production" {
 		storages.NewLocalStorage(chart, props.StorageName, &storages.LocalStorageProps{})
-		lpvr := volumes.NewLocalVolume(
+		volumeResource := volumes.NewLocalVolume(
 			chart,
 			"persistent-volume",
 			jsii.String("/mnt/vocascandb"),
@@ -71,7 +71,8 @@ func NewDbChart(scope constructs.Construct, id string, props *DbChartProps) cdk8
 				},
 				VolumeConfig: &statefulsets.VolumeConfig{
 					StorageClassName: jsii.String(props.StorageName),
-					Volume:           &lpvr.Volume,
+					Volume:           &volumeResource.Volume,
+					Claim:            &volumeResource.Claim,
 				},
 				Network: jsii.String(props.Network),
 			},
@@ -132,7 +133,7 @@ func NewServerChart(scope constructs.Construct, id string, props *ServerChartPro
 				jsii.String("VOCASCAN__DATABASE__HOST"): jsii.String("{{ .Values.Server.Db.Host }}"),
 				jsii.String("VOCASCAN__DATABASE__PORT"): jsii.String("{{ .Values.Server.Db.Port }}"),
 			},
-			Volumes: &map[*string]*cdk8splus26.Volume{
+			Volumes: &map[*string]*cdk8splus28.Volume{
 				jsii.String("/etc/vocascan"): &volume,
 			},
 			ClusterIssuer: &props.ClusterIssuer,

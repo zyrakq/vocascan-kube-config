@@ -1,19 +1,4 @@
 apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: vocascan-db-persistent-volume-claim
-  namespace: vocascan
-spec:
-  accessModes:
-    - ReadWriteOnce
-    - ReadOnlyMany
-  resources:
-    requests:
-      storage: 0.1Gi
-  storageClassName: standard
-  volumeMode: Filesystem
----
-apiVersion: v1
 kind: Secret
 metadata:
   name: vocascan-db-name-secret
@@ -83,12 +68,12 @@ spec:
       automountServiceAccountToken: false
       containers:
         - env:
+            - name: POSTGRES_DB_FILE
+              value: /run/secrets/vocascan-db/vocascan-db
             - name: POSTGRES_USER_FILE
               value: /run/secrets/vocascan-db-user/vocascan-db-user
             - name: POSTGRES_PASSWORD_FILE
               value: /run/secrets/vocascan-db-passwd/vocascan-db-passwd
-            - name: POSTGRES_DB_FILE
-              value: /run/secrets/vocascan-db/vocascan-db
           image: postgres:12.9
           imagePullPolicy: Always
           livenessProbe:
@@ -113,14 +98,14 @@ spec:
             tcpSocket:
               port: 5432
           volumeMounts:
+            - mountPath: /run/secrets/vocascan-db-passwd
+              name: vocascan-db-passwd
             - mountPath: /var/lib/postgresql/data
               name: vocascan-db-persistent-volume-claim
             - mountPath: /run/secrets/vocascan-db
               name: vocascan-db
             - mountPath: /run/secrets/vocascan-db-user
               name: vocascan-db-user
-            - mountPath: /run/secrets/vocascan-db-passwd
-              name: vocascan-db-passwd
       dnsPolicy: ClusterFirst
       hostNetwork: false
       restartPolicy: Always
@@ -130,6 +115,12 @@ spec:
       setHostnameAsFQDN: false
       terminationGracePeriodSeconds: 30
       volumes:
+        - name: vocascan-db-passwd
+          secret:
+            items:
+              - key: vocascan-db-passwd
+                path: vocascan-db-passwd
+            secretName: vocascan-db-passwd-secret
         - name: vocascan-db-persistent-volume-claim
           persistentVolumeClaim:
             claimName: vocascan-db-persistent-volume-claim
@@ -146,13 +137,20 @@ spec:
               - key: vocascan-db-user
                 path: vocascan-db-user
             secretName: vocascan-db-user-secret
-        - name: vocascan-db-passwd
-          secret:
-            items:
-              - key: vocascan-db-passwd
-                path: vocascan-db-passwd
-            secretName: vocascan-db-passwd-secret
   updateStrategy:
     rollingUpdate:
       partition: 0
     type: RollingUpdate
+  volumeClaimTemplates:
+    - metadata:
+        name: vocascan-db-persistent-volume-claim
+        namespace: vocascan
+      spec:
+        accessModes:
+          - ReadWriteOnce
+          - ReadOnlyMany
+        resources:
+          requests:
+            storage: null
+        storageClassName: standard
+        volumeMode: Filesystem

@@ -36,12 +36,12 @@ spec:
       automountServiceAccountToken: false
       containers:
         - env:
-            - name: VOCASCAN__DATABASE__PORT
-              value: "{{ .Values.Server.Db.Port }}"
             - name: VOCASCAN_CONFIG
               value: "{{ .Values.Server.Config }}"
             - name: VOCASCAN__DATABASE__HOST
               value: "{{ .Values.Server.Db.Host }}"
+            - name: VOCASCAN__DATABASE__PORT
+              value: "{{ .Values.Server.Db.Port }}"
           image: vocascan/server:latest
           imagePullPolicy: Always
           name: vocascan-server
